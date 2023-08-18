@@ -1,0 +1,33 @@
+import { Prisma } from '@prisma/client';
+import { DaySummaryRow } from './types';
+
+export const parseDayRow = (data: DaySummaryRow): Prisma.DaySummaryCreateInput => ({
+  station: data.STATION,
+  date: new Date(data.DATE),
+  latitude: Number.parseFloat(data.LATITUDE || '0'),
+  longitude: Number.parseFloat(data.LONGITUDE || '0'),
+  elevation: Number.parseFloat(data.ELEVATION || '0'),
+  name: data.NAME,
+  temp: Number.parseFloat(data.TEMP),
+  tempAttributes: Number.parseInt(data.TEMP_ATTRIBUTES, 10),
+  dewp: Number.parseFloat(data.DEWP),
+  dewpAttributes: Number.parseInt(data.DEWP_ATTRIBUTES, 10),
+  slp: Number.parseFloat(data.SLP),
+  slpAttributes: Number.parseInt(data.SLP_ATTRIBUTES, 10),
+  stp: Number.parseFloat(data.STP),
+  stpAttributes: Number.parseInt(data.STP_ATTRIBUTES, 10),
+  visib: Number.parseFloat(data.VISIB),
+  visibAttributes: Number.parseInt(data.VISIB_ATTRIBUTES, 10),
+  wdsp: Number.parseFloat(data.WDSP),
+  wdspAttributes: Number.parseInt(data.WDSP_ATTRIBUTES, 10),
+  mxspd: Number.parseFloat(data.MXSPD),
+  gust: Number.parseFloat(data.GUST),
+  max: Number.parseFloat(data.MAX),
+  maxAttributes: data.MAX_ATTRIBUTES,
+  min: Number.parseFloat(data.MIN),
+  minAttributes: data.MIN_ATTRIBUTES,
+  prcp: Number.parseFloat(data.PRCP),
+  prcpAttributes: data.PRCP_ATTRIBUTES,
+  sndp: Number.parseFloat(data.SNDP),
+  frshtt: data.FRSHTT,
+});

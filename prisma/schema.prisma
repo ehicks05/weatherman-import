@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model DaySummary {
+  station         String
+  date            DateTime @db.Date
+  latitude        Float
+  longitude       Float
+  elevation       Float
+  name            String
+  temp            Float
+  tempAttributes  Int      @map("temp_attributes")
+  dewp            Float
+  dewpAttributes  Int      @map("dewp_attributes")
+  slp             Float
+  slpAttributes   Int      @map("slp_attributes")
+  stp             Float
+  stpAttributes   Int      @map("stp_attributes")
+  visib           Float
+  visibAttributes Int      @map("visib_attributes")
+  wdsp            Float
+  wdspAttributes  Int      @map("wdsp_attributes")
+  mxspd           Float
+  gust            Float
+  max             Float
+  maxAttributes   String?  @map("max_attributes")
+  min             Float
+  minAttributes   String?  @map("min_attributes")
+  prcp            Float
+  prcpAttributes  String?  @map("prcp_attributes")
+  sndp            Float
+  frshtt          String
+
+  @@id([station, date])
+  @@map("day_summary")
+}
