@@ -20,14 +20,13 @@ const runImport = async () => {
 // mostly housekeeping
 const wrapper = async () => {
   try {
-    logger.info('starting tmdb_loader script');
-    const startedAt = new Date();
+    logger.info('starting import script');
+    const start = new Date();
 
     await runImport();
 
-    const endedAt = new Date();
-    const duration = intervalToDuration({ start: startedAt, end: endedAt });
-    logger.info(`finished tmdb_loader script in ${formatDuration(duration)}`);
+    const duration = intervalToDuration({ start, end: new Date() });
+    logger.info(`finished import script in ${formatDuration(duration)}`);
   } catch (err) {
     logger.error(err);
   }
