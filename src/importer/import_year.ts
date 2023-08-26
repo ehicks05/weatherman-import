@@ -33,7 +33,10 @@ export const importYear = async (year: number) => {
     }
 
     const csv = Buffer.from(temp).toString();
-    const data = Papa.parse<DaySummaryRow>(csv, { header: true });
+    const data = Papa.parse<DaySummaryRow>(csv, {
+      header: true,
+      skipEmptyLines: true,
+    });
 
     if (!existingStations[data.data[0].STATION]) {
       const createInputs = data.data.map(row => parseDayRow(row));
