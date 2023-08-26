@@ -1,1 +1,2 @@
-export const getLocalPath = (year: number) => `./noaa-data/${year}.tar.gz`;
+export const DATA_PATH = `./noaa-data`;
+export const getLocalPath = (year: number) => `${DATA_PATH}/${year}.tar.gz`;
