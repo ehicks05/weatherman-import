@@ -7,7 +7,13 @@ const getUrl = (year: number) =>
 
 export const downloadIfNotExists = async (year: number) => {
   const localPath = getLocalPath(year);
-  if (!existsSync(localPath) || statSync(localPath).size === 0) {
+  const exists = existsSync(localPath) && statSync(localPath).size !== 0;
+
+  if (exists) {
+    console.log(`found non-empty file ${localPath}, skipping download`);
+  } else {
+    console.log(`failed to find non-empty file ${localPath}, downloading...`);
+
     try {
       await axios
         .get(getUrl(year), { responseType: 'arraybuffer' })
@@ -17,5 +23,7 @@ export const downloadIfNotExists = async (year: number) => {
     } catch (e) {
       console.log(e);
     }
+
+    console.log(`finished downloading ${localPath}`);
   }
 };
