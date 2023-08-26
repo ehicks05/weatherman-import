@@ -16,8 +16,6 @@ model DaySummary {
   name      String
   temp      Float
   dewp      Float
-  slp       Float
-  stp       Float
   visib     Float
   wdsp      Float
   mxspd     Float
