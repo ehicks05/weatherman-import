@@ -18,12 +18,13 @@ export const importYear = async (year: number) => {
 
   const existingStations = keyBy(
     await prisma.daySummary.findMany({
-      where: { date: { gte: new Date(`${year}`) } },
+      where: { date: { gte: new Date(`${year}`), lt: new Date(`${year + 1}`) } },
       select: { station: true },
       distinct: ['station'],
     }),
     o => o.station,
   );
+  logger.info(`found ${Object.keys(existingStations).length} stations in db`);
 
   extract.on('entry', async (_header, stream, next) => {
     let temp: Buffer = Buffer.from([]);
@@ -46,7 +47,7 @@ export const importYear = async (year: number) => {
     next();
   });
 
-  extract.on('finish', () => console.log('onfinish'));
+  extract.on('finish', () => logger.info('onfinish'));
 
   createReadStream(getLocalPath(year)).pipe(createGunzip()).pipe(extract);
 };

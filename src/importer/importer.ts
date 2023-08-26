@@ -7,7 +7,7 @@ import { importYear } from './import_year';
 const runImport = async () => {
   try {
     const years = range(2022, 2023);
-    console.log({ years });
+    logger.info({ years });
 
     await P.each(years, async year => {
       await importYear(year);
