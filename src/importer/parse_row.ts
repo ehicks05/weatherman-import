@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import z from 'zod';
 import { DaySummaryRow } from './types';
+import logger from '../services/logger';
 
 const daySummaryRowSchema = z
   .object({
@@ -10,16 +11,16 @@ const daySummaryRowSchema = z
     LONGITUDE: z.coerce.number(),
     ELEVATION: z.coerce.number(),
     NAME: z.string(),
-    TEMP: z.coerce.number().lt(9999.9),
-    DEWP: z.coerce.number().lt(9999.9),
-    VISIB: z.coerce.number().lt(999.9),
-    WDSP: z.coerce.number().lt(999.9),
-    MXSPD: z.coerce.number().lt(999.9),
-    GUST: z.coerce.number().lt(999.9),
-    MAX: z.coerce.number().lt(9999.9),
-    MIN: z.coerce.number().lt(9999.9),
-    PRCP: z.coerce.number().lt(99.99),
-    SNDP: z.coerce.number().lt(999.9),
+    TEMP: z.coerce.number(),
+    DEWP: z.coerce.number(),
+    VISIB: z.coerce.number(),
+    WDSP: z.coerce.number(),
+    MXSPD: z.coerce.number(),
+    GUST: z.coerce.number(),
+    MAX: z.coerce.number(),
+    MIN: z.coerce.number(),
+    PRCP: z.coerce.number(),
+    SNDP: z.coerce.number(),
     FRSHTT: z.string(),
   })
   .transform(o => ({
@@ -29,21 +30,26 @@ const daySummaryRowSchema = z
     longitude: o.LONGITUDE,
     elevation: o.ELEVATION,
     name: o.NAME,
-    temp: o.TEMP,
-    dewp: o.DEWP,
-    visib: o.VISIB,
-    wdsp: o.WDSP,
-    mxspd: o.MXSPD,
-    gust: o.GUST,
-    max: o.MAX,
-    min: o.MIN,
-    prcp: o.PRCP,
-    sndp: o.SNDP,
+    temp: o.TEMP === 9999.9 ? undefined : o.TEMP,
+    dewp: o.DEWP === 9999.9 ? undefined : o.DEWP,
+    visib: o.VISIB === 999.9 ? undefined : o.VISIB,
+    wdsp: o.WDSP === 999.9 ? undefined : o.WDSP,
+    mxspd: o.MXSPD === 999.9 ? undefined : o.MXSPD,
+    gust: o.GUST === 999.9 ? undefined : o.GUST,
+    max: o.MAX === 9999.9 ? undefined : o.MAX,
+    min: o.MIN === 9999.9 ? undefined : o.MIN,
+    prcp: o.PRCP === 99.9 ? undefined : o.PRCP,
+    sndp: o.SNDP === 999.9 ? undefined : o.SNDP,
     frshtt: o.FRSHTT,
   }));
 
-export const parseDayRow = (data: DaySummaryRow): Prisma.DaySummaryCreateInput => {
-  const parsed = daySummaryRowSchema.parse(data);
-  console.log({ data, parsed });
-  return parsed;
+export const parseDayRow = (
+  data: DaySummaryRow,
+): Prisma.DaySummaryCreateInput | undefined => {
+  const parsed = daySummaryRowSchema.safeParse(data);
+  if (!parsed.success) {
+    logger.info(parsed.error);
+    return undefined;
+  }
+  return parsed.data;
 };
