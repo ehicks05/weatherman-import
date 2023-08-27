@@ -12,8 +12,6 @@ import { downloadIfNotExists } from './download';
 import { getLocalPath } from './utils';
 import { DaySummaryRow } from './types';
 
-const extract = tarStream.extract();
-
 const bufferEntry = async (stream: internal.PassThrough) => {
   let buffer: Buffer = Buffer.from([]);
   for await (const chunk of stream) {
@@ -37,29 +35,38 @@ export const importYear = async (year: number) => {
   logger.info(`found ${Object.keys(existingStations).length} stations in db`);
   logger.info(`starting parsing...`);
 
-  extract.on('entry', async (_header, stream, next) => {
-    const entry = await bufferEntry(stream);
-    const data = Papa.parse<DaySummaryRow>(entry.toString(), {
-      header: true,
-      skipEmptyLines: true,
+  return new Promise((resolve, reject) => {
+    const extract = tarStream.extract();
+
+    extract.on('entry', async (_header, stream, next) => {
+      const entry = await bufferEntry(stream);
+      const data = Papa.parse<DaySummaryRow>(entry.toString(), {
+        header: true,
+        skipEmptyLines: true,
+      });
+
+      const { NAME, STATION } = data.data[0];
+      const shouldParse = NAME.endsWith(' US') && !existingStations[STATION];
+
+      if (shouldParse) {
+        const createInputs = data.data
+          .map(row => parseDayRow(row))
+          .filter((o): o is Prisma.DaySummaryCreateInput => !!o);
+        await prisma.daySummary.createMany({ data: createInputs });
+      }
+
+      next();
     });
 
-    const { NAME, STATION } = data.data[0];
-    const shouldParse = NAME.endsWith(' US') && !existingStations[STATION];
+    extract.on('finish', async () => {
+      logger.info(`finished ${year}`);
+      return resolve(true);
+    });
+    extract.on('error', async e => {
+      logger.error(`error while parsing ${year}`, e);
+      return reject(e);
+    });
 
-    if (shouldParse) {
-      const createInputs = data.data
-        .map(row => parseDayRow(row))
-        .filter((o): o is Prisma.DaySummaryCreateInput => !!o);
-      await prisma.daySummary.createMany({ data: createInputs });
-    }
-
-    next();
+    createReadStream(getLocalPath(year)).pipe(createGunzip()).pipe(extract);
   });
-
-  extract.on('finish', async () => {
-    logger.info(`finished ${year}`);
-  });
-
-  createReadStream(getLocalPath(year)).pipe(createGunzip()).pipe(extract);
 };
