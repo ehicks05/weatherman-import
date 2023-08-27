@@ -38,7 +38,7 @@ const daySummaryRowSchema = z
     gust: o.GUST === 999.9 ? undefined : o.GUST,
     max: o.MAX === 9999.9 ? undefined : o.MAX,
     min: o.MIN === 9999.9 ? undefined : o.MIN,
-    prcp: o.PRCP === 99.9 ? undefined : o.PRCP,
+    prcp: o.PRCP === 99.99 ? undefined : o.PRCP,
     sndp: o.SNDP === 999.9 ? undefined : o.SNDP,
     frshtt: o.FRSHTT,
   }));
