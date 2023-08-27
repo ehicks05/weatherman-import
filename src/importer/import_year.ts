@@ -1,5 +1,6 @@
 import { createReadStream } from 'fs';
 import { createGunzip } from 'zlib';
+import internal from 'stream';
 import tarStream from 'tar-stream';
 import Papa from 'papaparse';
 import { keyBy } from 'lodash';
@@ -12,6 +13,14 @@ import { getLocalPath } from './utils';
 import { DaySummaryRow } from './types';
 
 const extract = tarStream.extract();
+
+const bufferEntry = async (stream: internal.PassThrough) => {
+  let buffer: Buffer = Buffer.from([]);
+  for await (const chunk of stream) {
+    buffer = Buffer.concat([buffer, chunk]);
+  }
+  return buffer;
+};
 
 export const importYear = async (year: number) => {
   logger.info(`importing ${year}`);
@@ -29,20 +38,14 @@ export const importYear = async (year: number) => {
   logger.info(`starting parsing...`);
 
   extract.on('entry', async (_header, stream, next) => {
-    let temp: Buffer = Buffer.from([]);
-
-    for await (const chunk of stream) {
-      temp = Buffer.concat([temp, chunk]);
-    }
-
-    const csv = Buffer.from(temp).toString();
-    const data = Papa.parse<DaySummaryRow>(csv, {
+    const entry = await bufferEntry(stream);
+    const data = Papa.parse<DaySummaryRow>(entry.toString(), {
       header: true,
       skipEmptyLines: true,
     });
 
-    const shouldParse =
-      data.data[0].NAME.endsWith(' US') && !existingStations[data.data[0].STATION];
+    const { NAME, STATION } = data.data[0];
+    const shouldParse = NAME.endsWith(' US') && !existingStations[STATION];
 
     if (shouldParse) {
       const createInputs = data.data
