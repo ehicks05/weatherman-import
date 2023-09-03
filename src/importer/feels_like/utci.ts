@@ -1,14 +1,16 @@
+import convert from 'convert-units';
+
 /**
  * Function to calculate UTCI
  * From https://gist.github.com/chriswmackey/b852dd9e01f79402d8a7b355f97b84c8
  * Online calculator: https://www.antonellodinunzio.online/web-project/utci-tool/utci-calculator.html
- * @param Ta Air tmperature in Celcius
+ * @param Ta Air temperature in Celcius
  * @param Tmrt Mean radiant tmperature in Celcius
  * @param va Wind velocity in m/s
  * @param RH Relative humidity in %
  * @returns UTCI
  */
-export const calcUTCI = (Ta: number, Tmrt: number, va: number, RH: number) => {
+const _calcUTCI = (Ta: number, Tmrt: number, va: number, RH: number) => {
   // Calculate vapor pressure from relative humidity.
   const g = [
     -2836.5744,
@@ -247,3 +249,35 @@ export const calcUTCI = (Ta: number, Tmrt: number, va: number, RH: number) => {
     0.00148348065 * Pa * Pa * Pa * Pa * Pa * Pa;
   return UTCIapprox;
 };
+
+const toRH = (fahr: number, dewpFahr: number) => {
+  const e = Math.E;
+  const beta = 17.625;
+  const lambda = 243.04;
+
+  const dp = convert(dewpFahr).from('F').to('C');
+  const t = convert(fahr).from('F').to('C');
+
+  const num = e ** ((beta * dp) / (lambda + dp));
+  const den = e ** ((beta * t) / (lambda + t));
+  return 100 * (num / den);
+};
+
+/**
+ * Wraps _calcUTCI to provide unit conversions to/from noaa data
+ * @param fahr
+ * @param dewpfahr
+ * @param windMph
+ * @returns
+ */
+export const calcUtci = (fahr: number, dewpfahr: number, windMph: number) => {
+  const utci = _calcUTCI(
+    convert(fahr).from('F').to('C'),
+    convert(fahr).from('F').to('C'),
+    convert(windMph).from('m/h').to('m/s'),
+    toRH(fahr, dewpfahr),
+  );
+  return convert(utci).from('C').to('F');
+};
+
+console.log(calcUtci(72, 35, 5));
