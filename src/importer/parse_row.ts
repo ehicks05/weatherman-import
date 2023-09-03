@@ -13,14 +13,10 @@ const daySummaryRowSchema = z
     NAME: z.string(),
     TEMP: z.coerce.number(),
     DEWP: z.coerce.number(),
-    VISIB: z.coerce.number(),
     WDSP: z.coerce.number(),
-    MXSPD: z.coerce.number(),
-    GUST: z.coerce.number(),
     MAX: z.coerce.number(),
     MIN: z.coerce.number(),
     PRCP: z.coerce.number(),
-    SNDP: z.coerce.number(),
     FRSHTT: z.string(),
   })
   .transform(o => ({
@@ -32,14 +28,10 @@ const daySummaryRowSchema = z
     name: o.NAME,
     temp: o.TEMP === 9999.9 ? undefined : o.TEMP,
     dewp: o.DEWP === 9999.9 ? undefined : o.DEWP,
-    visib: o.VISIB === 999.9 ? undefined : o.VISIB,
     wdsp: o.WDSP === 999.9 ? undefined : o.WDSP,
-    mxspd: o.MXSPD === 999.9 ? undefined : o.MXSPD,
-    gust: o.GUST === 999.9 ? undefined : o.GUST,
     max: o.MAX === 9999.9 ? undefined : o.MAX,
     min: o.MIN === 9999.9 ? undefined : o.MIN,
     prcp: o.PRCP === 99.99 ? undefined : o.PRCP,
-    sndp: o.SNDP === 999.9 ? undefined : o.SNDP,
     frshtt: o.FRSHTT,
   }));
 

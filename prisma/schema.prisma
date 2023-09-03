@@ -16,14 +16,10 @@ model DaySummary {
   name      String
   temp      Float?
   dewp      Float?
-  visib     Float?
   wdsp      Float?
-  mxspd     Float?
-  gust      Float?
   max       Float?
   min       Float?
   prcp      Float?
-  sndp      Float?
   frshtt    String
 
   @@id([station, date])
