@@ -6,11 +6,12 @@ import Papa from 'papaparse';
 import { keyBy } from 'lodash';
 import { Prisma } from '@prisma/client';
 import logger from '../services/logger';
-import { parseDayRow } from './parse_row';
+import { parseDayRow } from './parse_day_summary';
 import prisma from '../services/prisma';
 import { downloadIfNotExists } from './download';
 import { getLocalPath } from './utils';
 import { DaySummaryRow } from './types';
+import { parseStation } from './parse_station';
 
 const bufferEntry = async (stream: internal.PassThrough) => {
   let buffer: Buffer = Buffer.from([]);
@@ -24,15 +25,8 @@ export const importYear = async (year: number) => {
   logger.info(`importing ${year}`);
   await downloadIfNotExists(year);
 
-  const existingStations = keyBy(
-    await prisma.daySummary.findMany({
-      where: { date: { gte: new Date(`${year}`), lt: new Date(`${year + 1}`) } },
-      select: { station: true },
-      distinct: ['station'],
-    }),
-    o => o.station,
-  );
-  logger.info(`found ${Object.keys(existingStations).length} stations in db`);
+  const existingStationIds = keyBy(await prisma.station.findMany(), o => o.id);
+  logger.info(`found ${Object.keys(existingStationIds).length} stations in db`);
   logger.info(`starting parsing...`);
 
   return new Promise((resolve, reject) => {
@@ -46,12 +40,19 @@ export const importYear = async (year: number) => {
       });
 
       const { NAME, STATION } = data.data[0];
-      const shouldParse = NAME.endsWith(' US') && !existingStations[STATION];
+      const isUS = NAME.endsWith(' US');
 
-      if (shouldParse) {
+      if (isUS) {
+        if (!existingStationIds[STATION]) {
+          const createInput = parseStation(data.data[0]);
+          if (createInput) {
+            await prisma.station.create({ data: createInput });
+          }
+        }
+
         const createInputs = data.data
           .map(row => parseDayRow(row))
-          .filter((o): o is Prisma.DaySummaryCreateInput => !!o);
+          .filter((o): o is Prisma.DaySummaryCreateManyInput => !!o);
         await prisma.daySummary.createMany({ data: createInputs });
       }
 

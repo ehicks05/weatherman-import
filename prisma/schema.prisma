@@ -7,13 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model DaySummary {
-  station   String
-  date      DateTime @db.Date
+model Station {
+  id        String @id
+  name      String
   latitude  Float
   longitude Float
   elevation Float
-  name      String
+
+  daySummaries DaySummary[]
+
+  @@map("station")
+}
+
+model DaySummary {
+  stationId String   @map("station_id")
+  date      DateTime @db.Date
   temp      Float?
   dewp      Float?
   wdsp      Float?
@@ -22,6 +30,8 @@ model DaySummary {
   prcp      Float?
   frshtt    String
 
-  @@id([station, date])
+  station Station @relation(fields: [stationId], references: [id])
+
+  @@id([stationId, date])
   @@map("day_summary")
 }

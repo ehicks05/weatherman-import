@@ -6,7 +6,7 @@ import { importYear } from './import_year';
 
 const runImport = async () => {
   try {
-    const years = range(2000, 2023);
+    const years = range(2000, 2023).reverse();
     logger.info({ years });
 
     await P.each(years, async year => importYear(year));
