@@ -14,7 +14,8 @@ model Station {
   longitude Float
   elevation Float
 
-  daySummaries DaySummary[]
+  daySummaries       DaySummary[]
+  daySummaryAverages DaySummaryAverage[]
 
   @@map("station")
 }
@@ -34,4 +35,21 @@ model DaySummary {
 
   @@id([stationId, date])
   @@map("day_summary")
+}
+
+model DaySummaryAverage {
+  stationId     String @map("station_id")
+  date          String
+  yearsIncluded Int
+  temp          Float?
+  dewp          Float?
+  wdsp          Float?
+  max           Float?
+  min           Float?
+  prcp          Float?
+
+  station Station @relation(fields: [stationId], references: [id])
+
+  @@id([stationId, date])
+  @@map("day_summary_average")
 }

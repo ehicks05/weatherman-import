@@ -1,15 +1,54 @@
-import { formatDuration, intervalToDuration } from 'date-fns';
+import { format, formatDuration, intervalToDuration } from 'date-fns';
 import P from 'bluebird';
-import { range } from 'lodash';
+import { groupBy, mean, range, round } from 'lodash';
 import logger from '../services/logger';
 import { importYear } from './import_year';
+import prisma from '../services/prisma';
+
+const calculateDaySummaryAverages = async () => {
+  await prisma.daySummaryAverage.deleteMany();
+  const stations = await prisma.station.findMany({ select: { id: true } });
+
+  await P.map(
+    stations,
+    async (station: { id: string }) => {
+      const stationRecords = await prisma.daySummary.findMany({
+        where: { stationId: station.id },
+      });
+      const byPartialDate = groupBy(
+        stationRecords.map(o => ({ ...o, partialDate: format(o.date, 'MM-dd') })),
+        o => o.partialDate,
+      );
+      const daySummaryAverages = Object.entries(byPartialDate).map(
+        ([partialDate, values]) => ({
+          stationId: values[0].stationId,
+          date: partialDate,
+          yearsIncluded: values.length,
+          temp: round(mean(values.map(o => o.temp)), 1),
+          dewp: round(mean(values.map(o => o.dewp)), 1),
+          wdsp: round(mean(values.map(o => o.wdsp)), 1),
+          max: round(mean(values.map(o => o.max)), 1),
+          min: round(mean(values.map(o => o.min)), 1),
+          prcp: round(mean(values.map(o => o.prcp)), 4),
+        }),
+      );
+      await prisma.daySummaryAverage.createMany({ data: daySummaryAverages });
+    },
+    { concurrency: 8 },
+  );
+};
 
 const runImport = async () => {
   try {
-    const years = range(2000, 2023).reverse();
-    logger.info({ years });
+    const [start, end] = [2000, 2023];
+    const years = range(start, end).reverse();
+    logger.info(`years: [${start}, ${end})`);
 
     await P.each(years, async year => importYear(year));
+
+    logger.info('calculating multi-year averages');
+    await calculateDaySummaryAverages();
+    logger.info('finished calculating multi-year averages');
   } catch (err) {
     logger.error(err);
   }
@@ -23,8 +62,11 @@ const wrapper = async () => {
 
     await runImport();
 
-    const duration = intervalToDuration({ start, end: new Date() });
-    logger.info(`finished import script in ${formatDuration(duration)}`);
+    const end = new Date();
+    const duration =
+      formatDuration(intervalToDuration({ start, end })) ||
+      `${end.getTime() - start.getTime()} milliseconds`;
+    logger.info(`finished import script in ${duration}`);
   } catch (err) {
     logger.error(err);
   }

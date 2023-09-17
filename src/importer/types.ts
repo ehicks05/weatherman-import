@@ -1,3 +1,6 @@
+/**
+ * Row format from noaa
+ */
 export interface DaySummaryRow {
   STATION: string;
   DATE: string;
