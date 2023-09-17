@@ -41,12 +41,13 @@ model DaySummaryAverage {
   stationId     String @map("station_id")
   date          String
   yearsIncluded Int
-  temp          Float?
-  dewp          Float?
-  wdsp          Float?
-  max           Float?
-  min           Float?
-  prcp          Float?
+  temp          Float
+  dewp          Float
+  wdsp          Float
+  max           Float
+  min           Float
+  prcp          Float
+  utci          Float?
 
   station Station @relation(fields: [stationId], references: [id])
 

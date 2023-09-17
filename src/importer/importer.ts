@@ -4,6 +4,7 @@ import { groupBy, mean, range, round } from 'lodash';
 import logger from '../services/logger';
 import { importYear } from './import_year';
 import prisma from '../services/prisma';
+import { calcUtci } from './feels_like/utci';
 
 const calculateDaySummaryAverages = async () => {
   await prisma.daySummaryAverage.deleteMany();
@@ -38,6 +39,38 @@ const calculateDaySummaryAverages = async () => {
   );
 };
 
+const applyUtci = async () => {
+  const take = 100_000;
+  let skip = 0;
+  let daySummaryAverages = await prisma.daySummaryAverage.findMany({
+    where: { utci: { equals: null } },
+    skip,
+    take,
+  });
+
+  while (daySummaryAverages.length !== 0) {
+    await P.map(
+      daySummaryAverages,
+      async daySummaryAverage => {
+        const { stationId, date, temp, dewp, wdsp } = daySummaryAverage;
+        const utci = round(calcUtci(temp, dewp, wdsp), 1);
+        await prisma.daySummaryAverage.update({
+          data: { utci },
+          where: { stationId_date: { stationId, date } },
+        });
+      },
+      { concurrency: 32 },
+    );
+
+    skip += daySummaryAverages.length;
+    daySummaryAverages = await prisma.daySummaryAverage.findMany({
+      where: { utci: { equals: null } },
+      skip,
+      take,
+    });
+  }
+};
+
 const runImport = async () => {
   try {
     const [start, end] = [2000, 2023];
@@ -49,6 +82,9 @@ const runImport = async () => {
     logger.info('calculating multi-year averages');
     await calculateDaySummaryAverages();
     logger.info('finished calculating multi-year averages');
+    logger.info('applying utci to daySummaryAverages');
+    await applyUtci();
+    logger.info('finished applying utci to daySummaryAverages');
   } catch (err) {
     logger.error(err);
   }

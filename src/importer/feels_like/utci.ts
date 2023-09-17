@@ -268,7 +268,7 @@ const toRH = (fahr: number, dewpFahr: number) => {
  * @param fahr
  * @param dewpfahr
  * @param windMph
- * @returns
+ * @returns utciFahr
  */
 export const calcUtci = (fahr: number, dewpfahr: number, windMph: number) => {
   const utci = _calcUTCI(
@@ -279,5 +279,3 @@ export const calcUtci = (fahr: number, dewpfahr: number, windMph: number) => {
   );
   return convert(utci).from('C').to('F');
 };
-
-console.log(calcUtci(72, 35, 5));
