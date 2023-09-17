@@ -1,7 +1,20 @@
 import { calcUtci } from '../feels_like/utci';
 
-export const isPleasant = (t: number, min: number, max: number, precip: number) =>
-  t >= 55 && t < 75 && min >= 45 && max < 85;
+export const isPleasant = (temp: number, min: number, max: number, prcp: number) =>
+  temp >= 55 && temp < 75 && min >= 45 && max < 85;
+
+// uses utci-adjusted mean temp
+export const isPleasantUtciMean = ({
+  utci,
+  min,
+  max,
+  prcp,
+}: {
+  utci: number;
+  min: number;
+  max: number;
+  prcp: number;
+}) => utci >= 55 && utci < 75 && min >= 45 && max < 85;
 
 export const isPleasantUtci = (
   t: number,

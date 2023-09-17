@@ -5,6 +5,7 @@ import logger from '../services/logger';
 import { importYear } from './import_year';
 import prisma from '../services/prisma';
 import { calcUtci } from './feels_like/utci';
+import { isPleasantUtciMean } from './quality/quality';
 
 const calculateDaySummaryAverages = async () => {
   await prisma.daySummaryAverage.deleteMany();
@@ -21,17 +22,29 @@ const calculateDaySummaryAverages = async () => {
         o => o.partialDate,
       );
       const daySummaryAverages = Object.entries(byPartialDate).map(
-        ([partialDate, values]) => ({
-          stationId: values[0].stationId,
-          date: partialDate,
-          yearsIncluded: values.length,
-          temp: round(mean(values.map(o => o.temp)), 1),
-          dewp: round(mean(values.map(o => o.dewp)), 1),
-          wdsp: round(mean(values.map(o => o.wdsp)), 1),
-          max: round(mean(values.map(o => o.max)), 1),
-          min: round(mean(values.map(o => o.min)), 1),
-          prcp: round(mean(values.map(o => o.prcp)), 4),
-        }),
+        ([partialDate, values]) => {
+          const temp = round(mean(values.map(o => o.temp)), 1);
+          const dewp = round(mean(values.map(o => o.dewp)), 1);
+          const wdsp = round(mean(values.map(o => o.wdsp)), 1);
+          const max = round(mean(values.map(o => o.max)), 1);
+          const min = round(mean(values.map(o => o.min)), 1);
+          const prcp = round(mean(values.map(o => o.prcp)), 4);
+
+          const utci = round(calcUtci(temp, dewp, wdsp), 1);
+
+          return {
+            stationId: values[0].stationId,
+            date: partialDate,
+            yearsIncluded: values.length,
+            temp,
+            dewp,
+            wdsp,
+            max,
+            min,
+            prcp,
+            utci,
+          };
+        },
       );
       await prisma.daySummaryAverage.createMany({ data: daySummaryAverages });
     },
@@ -39,36 +52,31 @@ const calculateDaySummaryAverages = async () => {
   );
 };
 
-const applyUtci = async () => {
-  const take = 100_000;
-  let skip = 0;
-  let daySummaryAverages = await prisma.daySummaryAverage.findMany({
-    where: { utci: { equals: null } },
-    skip,
-    take,
-  });
+const calculateStationSummaries = async () => {
+  const stations = await prisma.station.findMany({ select: { id: true } });
 
-  while (daySummaryAverages.length !== 0) {
-    await P.map(
-      daySummaryAverages,
-      async daySummaryAverage => {
-        const { stationId, date, temp, dewp, wdsp } = daySummaryAverage;
-        const utci = round(calcUtci(temp, dewp, wdsp), 1);
-        await prisma.daySummaryAverage.update({
-          data: { utci },
-          where: { stationId_date: { stationId, date } },
-        });
-      },
-      { concurrency: 32 },
-    );
+  await P.map(
+    stations,
+    async station => {
+      const daySummaryAverages = await prisma.daySummaryAverage.findMany({
+        where: { stationId: station.id },
+      });
+      const days = daySummaryAverages.length;
+      if (days < 365) {
+        return;
+      }
 
-    skip += daySummaryAverages.length;
-    daySummaryAverages = await prisma.daySummaryAverage.findMany({
-      where: { utci: { equals: null } },
-      skip,
-      take,
-    });
-  }
+      const pleasantDays = daySummaryAverages.filter(dsa =>
+        isPleasantUtciMean(dsa),
+      ).length;
+      await prisma.stationSummary.upsert({
+        where: { stationId: station.id },
+        create: { stationId: station.id, pleasantDays, days },
+        update: { stationId: station.id, pleasantDays, days },
+      });
+    },
+    { concurrency: 16 },
+  );
 };
 
 const runImport = async () => {
@@ -79,12 +87,13 @@ const runImport = async () => {
 
     await P.each(years, async year => importYear(year));
 
-    logger.info('calculating multi-year averages');
+    logger.info('calculating daySummaryAverages');
     await calculateDaySummaryAverages();
-    logger.info('finished calculating multi-year averages');
-    logger.info('applying utci to daySummaryAverages');
-    await applyUtci();
-    logger.info('finished applying utci to daySummaryAverages');
+    logger.info('finished calculating daySummaryAverages');
+
+    logger.info('calculating stationSummaries');
+    await calculateStationSummaries();
+    logger.info('finished calculating stationSummaries');
   } catch (err) {
     logger.error(err);
   }
