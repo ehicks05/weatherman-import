@@ -1,6 +1,6 @@
-import { existsSync, mkdir, statSync, writeFile } from 'fs';
+import { existsSync, statSync, writeFile } from 'fs';
 import axios from 'axios';
-import { DATA_PATH, getLocalPath } from './utils';
+import { getLocalPath } from './utils';
 import logger from '../services/logger';
 
 const BASE_URL = 'https://www.ncei.noaa.gov/data/global-summary-of-the-day/archive';
@@ -14,11 +14,6 @@ export const downloadIfNotExists = async (year: number) => {
     logger.info(`found non-empty file ${localPath}, skipping download`);
   } else {
     logger.info(`failed to find non-empty file ${localPath}, downloading...`);
-    mkdir(DATA_PATH, { recursive: true }, e => {
-      if (e) {
-        logger.error(e);
-      }
-    });
     try {
       await axios
         .get(getUrl(year), { responseType: 'arraybuffer' })
