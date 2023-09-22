@@ -6,6 +6,9 @@ import { importYear } from './import_year';
 import prisma from '../services/prisma';
 import { calcUtci } from './feels_like/utci';
 import { isPleasantUtciMean } from './quality/quality';
+import { initDataDir } from './utils';
+import { extractTar } from './extract_tar';
+import { downloadIfNotExists } from './download';
 
 const calculateDaySummaryAverages = async () => {
   await prisma.daySummaryAverage.deleteMany();
@@ -85,7 +88,12 @@ const runImport = async () => {
     const years = range(start, end).reverse();
     logger.info(`years: [${start}, ${end})`);
 
-    await P.each(years, async year => importYear(year));
+    await P.each(years, async year => {
+      await initDataDir(`${year}`);
+      await downloadIfNotExists(year);
+      await extractTar(year);
+      await importYear(year);
+    });
 
     logger.info('calculating daySummaryAverages');
     await calculateDaySummaryAverages();

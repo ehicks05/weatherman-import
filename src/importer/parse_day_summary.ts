@@ -35,5 +35,9 @@ export const parseDayRow = (
     logger.info(parsed.error);
     return undefined;
   }
+  const { temp, dewp, wdsp, max, min } = parsed.data;
+  if (!temp || !dewp || !wdsp || !max || !min) {
+    return undefined;
+  }
   return parsed.data;
 };

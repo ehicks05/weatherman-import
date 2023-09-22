@@ -1,40 +1,28 @@
-import { createReadStream } from 'fs';
-import { createGunzip } from 'zlib';
-import internal from 'stream';
-import tarStream from 'tar-stream';
+import { readFile, readdir } from 'fs/promises';
+import P from 'bluebird';
 import Papa from 'papaparse';
-import { Dictionary, keyBy } from 'lodash';
+import { Dictionary, groupBy, keyBy } from 'lodash';
 import { Prisma } from '@prisma/client';
 import logger from '../services/logger';
 import { parseDayRow } from './parse_day_summary';
 import prisma from '../services/prisma';
-import { downloadIfNotExists } from './download';
-import { getLocalPath } from './utils';
 import { DaySummaryRow } from './types';
 import { parseStation } from './parse_station';
 
-const bufferEntry = async (stream: internal.PassThrough) => {
-  let buffer: Buffer = Buffer.from([]);
-  for await (const chunk of stream) {
-    buffer = Buffer.concat([buffer, chunk]);
-  }
-  return buffer;
-};
-
-const handleEntry = async (
-  entry: Buffer,
-  existingStationIds: Dictionary<string>,
-) => {
-  const { data } = Papa.parse<DaySummaryRow>(entry.toString(), {
+const handleData = async (file: Buffer, existingStationIds: Dictionary<string>) => {
+  const { data } = Papa.parse<DaySummaryRow>(file.toString(), {
     header: true,
     skipEmptyLines: true,
   });
 
   const { NAME, STATION } = data[0];
-  const isUS = NAME.endsWith(' US');
+  if (!NAME.endsWith(' US')) {
+    return { skipped: true, reason: 'not_usa' };
+  }
 
-  if (!isUS) {
-    return;
+  // ignore stations with less than a full year's worth of records
+  if (data.length < 365) {
+    return { skipped: true, reason: 'too_few_rows' };
   }
 
   if (!existingStationIds[STATION]) {
@@ -48,46 +36,48 @@ const handleEntry = async (
     where: { stationId: STATION, date: parseDayRow(data[0])?.date },
   });
   if (existingDaySummary) {
-    return;
+    return { skipped: true, reason: 'already_exists' };
   }
 
   const createInputs = data
     .map(row => parseDayRow(row))
     .filter((o): o is Prisma.DaySummaryCreateManyInput => !!o);
+
+  // ignore stations with less than a full year's worth of records
+  if (createInputs.length < 365) {
+    return { skipped: true, reason: 'too_few_parsed_rows' };
+  }
+
   await prisma.daySummary.createMany({ data: createInputs });
+  return { skipped: false };
 };
 
 export const importYear = async (year: number) => {
   logger.info(`importing ${year}`);
-  await downloadIfNotExists(year);
-
-  const existingStationIds = await keyBy(
+  const existingStationIds = keyBy(
     (await prisma.station.findMany()).map(o => o.id),
     o => o,
   );
-  logger.info(`found ${Object.keys(existingStationIds).length} stations in db`);
-  logger.info(`starting parsing...`);
 
-  return new Promise((resolve, reject) => {
-    const extract = tarStream.extract();
+  const base = `./noaa-data/${year}`;
+  const files = await readdir(base);
 
-    extract.on('entry', async (_header, stream, next) => {
-      const entry = await bufferEntry(stream);
+  const results = await P.map(
+    files,
+    async file => {
+      const data = await readFile(`${base}/${file}`);
+      return handleData(data, existingStationIds);
+    },
+    { concurrency: 64 },
+  );
 
-      await handleEntry(entry, existingStationIds);
+  const grouped = groupBy(
+    results,
+    o => `skipped: ${o.skipped}${o.reason ? `: ${o.reason}` : ''}`,
+  );
+  const asEntry = Object.fromEntries(
+    Object.entries(grouped).map(([key, values]) => [key, values.length]),
+  );
 
-      next();
-    });
-
-    extract.on('finish', async () => {
-      logger.info(`finished ${year}`);
-      return resolve(true);
-    });
-    extract.on('error', async e => {
-      logger.error(`error while parsing ${year}`, e);
-      return reject(e);
-    });
-
-    createReadStream(getLocalPath(year)).pipe(createGunzip()).pipe(extract);
-  });
+  logger.info(asEntry);
 };
